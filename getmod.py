@@ -8,19 +8,28 @@ import argparse
 import hashlib
 
 parser = argparse.ArgumentParser(description='list files with file bits')
-parser.add_argument('--format', '-f', default='%(bitmask)o %(filename)s', help='Output format in sprintf syntax, default: "%(default)s", usable: bitmask, filename, md5sum')
-parser.add_argument('--recursive', '-r', default=False, action="store_true", help='List sub-contents of given directories')
-parser.add_argument('--exclude', '-e', default=[], action='append', help='exclude every file that contains the given word. can be given multiple times')
+parser.add_argument('--format', '-f', default='%(bitmask)o %(filename)s',
+    help="""Output format in sprintf syntax,
+default: "%(default)s", usable: bitmask, filename, md5sum""")
+parser.add_argument('--recursive', '-r', default=False, action="store_true",
+    help='List sub-contents of given directories')
+parser.add_argument('--exclude', '-e', default=[], action='append',
+    help="""exclude every file that contains the given word.
+can be given multiple times""")
 parser.add_argument('filename', nargs='+', help='List of files to display')
 args = parser.parse_args()
 
+
 def get_md5_hash(filename):
     md5 = hashlib.md5()
-    f = open(filename, 'r')
-    with open(filename, 'rb') as f:
-        for chunk in iter(lambda: f.read(8192), b''):
-            md5.update(chunk)
+    try:
+        with open(filename, 'rb') as f:
+            for chunk in iter(lambda: f.read(8192), b''):
+                md5.update(chunk)
+    except IOError:
+        return "-"
     return md5.hexdigest()
+
 
 def print_rights(filename):
     exclude = False
@@ -29,6 +38,7 @@ def print_rights(filename):
             exclude = True
     if not exclude:
         mode = 0
+        md5sum = '-'
         try:
             mode = os.stat(filename).st_mode
             if stat.S_ISDIR(mode):
@@ -37,7 +47,6 @@ def print_rights(filename):
                 md5sum = get_md5_hash(filename)
         except Exception, e:
             sys.stderr.write(str(e) + '\n')
-        md5sum = ''
         print args.format % {
                 'bitmask': mode & 0777,
                 'filename': filename,
@@ -45,7 +54,7 @@ def print_rights(filename):
                 }
 
 for filename in args.filename:
-    if args.recursive:
+    if args.recursive and os.path.isdir(filename):
         for root, dirs, files in os.walk(filename):
             print_rights(root)
             for name in files:
